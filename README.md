@@ -1,4 +1,4 @@
-# AWS CloudTrail – Complete Guide
+# CloudTrail
 
 ## What is AWS CloudTrail?
 
