@@ -150,6 +150,11 @@ No setup required.
 aws s3 mb s3://atul-cloudtrail-logs
 ```
 
+## Get Bucket Policy Details 
+```
+aws s3api get-bucket-policy \
+  --bucket atul-cloudtrail-logs
+```
 ---
 
 ## Create Trail
