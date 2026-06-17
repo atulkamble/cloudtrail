@@ -155,11 +155,50 @@ aws s3 mb s3://atul-cloudtrail-logs
 aws s3api get-bucket-policy \
   --bucket atul-cloudtrail-logs
 ```
+
+## Apply policy to bucket
+```
+aws s3api put-bucket-policy \
+  --bucket atul-cloudtrail-logs \
+  --policy file://cloudtrail-policy.json
+```
+
+## Check Bucket Region 
+```
+aws s3api get-bucket-location \
+  --bucket atul-cloudtrail-logs
+```
+
+## Check your CLI region:
+```
+aws configure get region
+```
+
+## Check Bucket Ownership Controls
+
+```
+aws s3api get-bucket-ownership-controls \
+  --bucket atul-cloudtrail-logs
+```  
+
+## check Public Access Block settings
+```
+aws s3api get-public-access-block \
+  --bucket atul-cloudtrail-logs
+```
+
+## Get your account ID
+```
+aws sts get-caller-identity \
+  --query Account \
+  --output text
+```
+
 ---
 
 ## Create Trail
 
-```bash
+```bash  
 aws cloudtrail create-trail \
   --name mytrail \
   --s3-bucket-name atul-cloudtrail-logs
@@ -175,12 +214,101 @@ aws cloudtrail start-logging \
 ```
 
 ---
+## Perform AWS actions
+```
+aws ec2 describe-instances
+aws s3 ls
+aws iam list-users
+```
+
+## Verify Events 
+```
+aws cloudtrail lookup-events \
+    --max-results 5
+```
+## Verify log files 
+```
+aws s3 ls s3://atul-cloudtrail-logs --recursive
+```
 
 ## Verify Trail
 
 ```bash
 aws cloudtrail describe-trails
 ```
+
+## Create an S3 Event
+```
+echo "CloudTrail Test" > test.txt
+
+aws s3 cp test.txt s3://atul-cloudtrail-logs/
+```
+
+## Verify: S3 Event 
+```
+ aws cloudtrail lookup-events \
+  --lookup-attributes AttributeKey=EventSource,AttributeValue=s3.amazonaws.com \
+  --max-results 10
+```
+
+## Enable S3 Data Events 
+```
+aws cloudtrail put-event-selectors \
+  --trail-name mytrail \
+  --event-selectors '[
+    {
+      "ReadWriteType":"All",
+      "IncludeManagementEvents":true,
+      "DataResources":[
+        {
+          "Type":"AWS::S3::Object",
+          "Values":["arn:aws:s3:::atul-cloudtrail-logs/"]
+        }
+      ]
+    }
+  ]'
+  ```
+
+## Verify 
+```
+aws cloudtrail get-event-selectors \
+  --trail-name mytrail
+```  
+
+## Upload another file 
+```
+echo "Hello" > file2.txt
+
+aws s3 cp file2.txt s3://atul-cloudtrail-logs/
+```
+
+## Search Again
+```
+aws cloudtrail lookup-events \
+  --lookup-attributes AttributeKey=EventSource,AttributeValue=s3.amazonaws.com \
+  --max-results 20
+```
+
+## List Newest Logs 
+```
+aws s3 ls s3://atul-cloudtrail-logs/AWSLogs/535002879962/CloudTrail/us-east-1/ --recursive
+```
+
+## List Latest Files 
+```
+aws s3 ls s3://atul-cloudtrail-logs/AWSLogs/535002879962/CloudTrail/us-east-1/ --recursive | tail -1
+```
+## Download Latest File 
+```
+aws s3 cp \
+s3://atul-cloudtrail-logs/AWSLogs/535002879962/CloudTrail/us-east-1/2026/06/17/535002879962_CloudTrail_us-east-1_20260617T2150Z_BzyOhgsC6hiTSJjJ.json.gz \
+.
+
+aws s3 cp \
+s3://atul-cloudtrail-logs/AWSLogs/535002879962/CloudTrail/us-east-1/2026/06/17/535002879962_CloudTrail_us-east-1_20260617T2150Z_xZjX2dDsOUoPTlZV.json.gz \
+.
+```
+
 
 ---
 
@@ -311,6 +439,18 @@ aws cloudtrail update-trail \
 }
 ```
 
+## Delete 
+```
+aws cloudtrail stop-logging \\n  --name mytrail
+aws cloudtrail delete-trail \\n  --name mytrail
+aws cloudtrail list-trails
+aws s3 ls
+aws s3 rb s3://atul-cloudtrail-logs
+aws s3 ls s3://atul-cloudtrail-logs --recursive
+aws s3 rm s3://atul-cloudtrail-logs --recursive
+aws s3 rb s3://atul-cloudtrail-logs
+aws s3 ls
+```
 ---
 
 # CloudTrail + CloudWatch
