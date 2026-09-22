@@ -1,4 +1,4 @@
-# AWS CloudTrail Monitoring — Training Notes
+# AWS CloudTrail Monitoring
 
 ## 1. Introduction to AWS CloudTrail
 
