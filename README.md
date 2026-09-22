@@ -1,3 +1,714 @@
+# AWS CloudTrail Monitoring — Training Notes
+
+## 1. Introduction to AWS CloudTrail
+
+**AWS CloudTrail** is an AWS auditing and governance service that records activity performed in an AWS account.
+
+Think of CloudTrail as:
+
+> **CloudTrail = Who did what, when, from where, and on which AWS resource?**
+
+CloudTrail records activity performed through the:
+
+* AWS Management Console
+* AWS CLI
+* AWS SDKs
+* AWS APIs
+* AWS services acting on your behalf
+
+### Example
+
+Suppose an IAM user deletes an EC2 instance.
+
+CloudTrail can help identify:
+
+```text
+Who?        Atul
+What?       TerminateInstances
+When?       22-Sep-2026 10:30 AM
+From where? 103.x.x.x
+Which?      EC2 instance i-0123456789
+Region?     ap-south-1
+```
+
+---
+
+# 2. Points to Remember
+
+### CloudTrail Key Points
+
+1. CloudTrail is primarily used for **auditing API and account activity**.
+2. It records AWS API calls and related events.
+3. CloudTrail Event History provides the most recent **90 days of management events** in an AWS Region.
+4. Event History is available without creating a trail.
+5. Create a **Trail** when you want ongoing delivery of CloudTrail events.
+6. Trail logs can be delivered to an **Amazon S3 bucket**.
+7. CloudTrail can integrate with **CloudWatch Logs** for monitoring and alerting.
+8. CloudTrail records information such as:
+
+```text
+User / Role
+Event Name
+AWS Service
+Event Time
+Source IP
+AWS Region
+Resource
+Request Parameters
+Response
+User Agent
+```
+
+9. CloudTrail is useful for:
+
+```text
+Security auditing
+Compliance
+Troubleshooting
+Incident investigation
+Tracking IAM activity
+Tracking resource changes
+Detecting suspicious API activity
+```
+
+10. CloudTrail answers:
+
+```text
+WHO performed the action?
+WHAT action was performed?
+WHEN was it performed?
+WHERE did the request originate?
+WHICH AWS resource was affected?
+```
+
+---
+
+# 3. CloudTrail Architecture Diagram
+
+```text
+                    AWS ACCOUNT
+                         |
+        +----------------+----------------+
+        |                |                |
+     IAM User         IAM Role        Root User
+        |                |                |
+        +----------------+----------------+
+                         |
+                         v
+               AWS API / Console / CLI
+                         |
+                         v
+              +---------------------+
+              |     AWS Services    |
+              |---------------------|
+              | EC2                 |
+              | S3                  |
+              | IAM                 |
+              | RDS                 |
+              | Lambda              |
+              | VPC                 |
+              +----------+----------+
+                         |
+                    API Activity
+                         |
+                         v
+              +---------------------+
+              |   AWS CloudTrail    |
+              +----------+----------+
+                         |
+             +-----------+-----------+
+             |                       |
+             v                       v
+      +-------------+         +---------------+
+      | Amazon S3   |         | CloudWatch    |
+      | Log Storage |         | Logs          |
+      +-------------+         +-------+-------+
+                                      |
+                                      v
+                              Metric Filter/Alarm
+                                      |
+                                      v
+                                  Amazon SNS
+                                      |
+                                      v
+                              Email / Notification
+```
+
+### Flow
+
+```text
+User / Role
+     |
+     v
+AWS API Call
+     |
+     v
+AWS Service
+     |
+     v
+CloudTrail
+     |
+     +------> Event History
+     |
+     +------> S3 Bucket
+     |
+     +------> CloudWatch Logs
+                    |
+                    v
+                  Alarm
+                    |
+                    v
+                   SNS
+```
+
+---
+
+# 4. Types of CloudTrail Events
+
+CloudTrail commonly works with three important event categories.
+
+### Management Events
+
+Operations performed on AWS resources and account configuration.
+
+Examples:
+
+```text
+RunInstances
+TerminateInstances
+CreateUser
+DeleteUser
+CreateBucket
+DeleteBucket
+CreateSecurityGroup
+StopInstances
+```
+
+These are commonly called **control-plane operations**.
+
+### Data Events
+
+Operations performed on or within resources.
+
+Examples include:
+
+```text
+S3 GetObject
+S3 PutObject
+Lambda Invoke
+DynamoDB item-level activity
+```
+
+Data events can generate a very large number of records, so enable them only where required and consider the associated cost.
+
+### Insights Events
+
+CloudTrail Insights can identify unusual patterns in supported API activity, such as unexpected changes in API call or error rates.
+
+---
+
+# 5. Basic CloudTrail Practical — Console
+
+## Step 1 — Open CloudTrail
+
+```text
+AWS Management Console
+        ↓
+Search "CloudTrail"
+        ↓
+Open CloudTrail
+```
+
+## Step 2 — Check Event History
+
+Navigate to:
+
+```text
+CloudTrail
+    ↓
+Event history
+```
+
+You can filter events using fields such as:
+
+```text
+Event name
+Event source
+Resource name
+Resource type
+Username
+Access key
+Event ID
+```
+
+---
+
+# 6. Generate Activity for Testing
+
+For example, create an S3 bucket or EC2 instance.
+
+CLI example:
+
+```bash
+aws s3 mb s3://my-cloudtrail-demo-123456
+```
+
+Check:
+
+```bash
+aws s3 ls
+```
+
+Delete it later:
+
+```bash
+aws s3 rb s3://my-cloudtrail-demo-123456
+```
+
+Now return to:
+
+```text
+CloudTrail
+    ↓
+Event history
+```
+
+Search for:
+
+```text
+CreateBucket
+```
+
+or:
+
+```text
+DeleteBucket
+```
+
+---
+
+# 7. Monitor User Activity
+
+Suppose an IAM user runs:
+
+```bash
+aws ec2 describe-instances
+```
+
+Or stops an instance:
+
+```bash
+aws ec2 stop-instances \
+--instance-ids i-0123456789abcdef0
+```
+
+CloudTrail can record information about that API request.
+
+Typical event:
+
+```json
+{
+  "eventSource": "ec2.amazonaws.com",
+  "eventName": "StopInstances",
+  "awsRegion": "ap-south-1",
+  "sourceIPAddress": "103.x.x.x"
+}
+```
+
+The complete event contains additional identity, request, resource, and response information.
+
+---
+
+# 8. Create a CloudTrail Trail
+
+Go to:
+
+```text
+CloudTrail
+    ↓
+Trails
+    ↓
+Create trail
+```
+
+Enter:
+
+```text
+Trail name:
+my-cloudtrail
+
+Storage location:
+Create new S3 bucket
+
+Bucket:
+aws-cloudtrail-logs-example
+```
+
+Select the required event types.
+
+For a basic lab:
+
+```text
+Management events
+    Read  → Enable
+    Write → Enable
+```
+
+Then:
+
+```text
+Create trail
+```
+
+Architecture:
+
+```text
+AWS API Activity
+       |
+       v
+   CloudTrail
+       |
+       v
+    Trail
+       |
+       v
+   S3 Bucket
+       |
+       v
+Long-term Audit Logs
+```
+
+---
+
+# 9. CloudTrail AWS CLI Commands
+
+Check configured identity first:
+
+```bash
+aws sts get-caller-identity
+```
+
+List trails:
+
+```bash
+aws cloudtrail describe-trails
+```
+
+Check trail status:
+
+```bash
+aws cloudtrail get-trail-status \
+--name my-cloudtrail
+```
+
+Start logging:
+
+```bash
+aws cloudtrail start-logging \
+--name my-cloudtrail
+```
+
+Stop logging:
+
+```bash
+aws cloudtrail stop-logging \
+--name my-cloudtrail
+```
+
+---
+
+# 10. Search CloudTrail Events Using CLI
+
+Show recent events:
+
+```bash
+aws cloudtrail lookup-events
+```
+
+Search by username:
+
+```bash
+aws cloudtrail lookup-events \
+--lookup-attributes AttributeKey=Username,AttributeValue=Atul
+```
+
+Search by event name:
+
+```bash
+aws cloudtrail lookup-events \
+--lookup-attributes AttributeKey=EventName,AttributeValue=CreateBucket
+```
+
+Search for EC2 termination:
+
+```bash
+aws cloudtrail lookup-events \
+--lookup-attributes AttributeKey=EventName,AttributeValue=TerminateInstances
+```
+
+---
+
+# 11. Example Security Investigation
+
+Suppose somebody terminates an EC2 instance.
+
+```text
+EC2 Instance
+     |
+     X  Terminated
+     |
+     v
+Administrator investigates
+     |
+     v
+CloudTrail
+     |
+     v
+Search:
+TerminateInstances
+     |
+     v
++----------------------------+
+| User Identity              |
+| Event Time                 |
+| Source IP                  |
+| Instance ID                |
+| Region                     |
+| Request Parameters         |
++----------------------------+
+```
+
+Command:
+
+```bash
+aws cloudtrail lookup-events \
+--lookup-attributes AttributeKey=EventName,AttributeValue=TerminateInstances
+```
+
+CloudTrail helps answer:
+
+```text
+Who terminated it?
+When?
+Which credentials/role were used?
+Which instance?
+Which region?
+What was the source IP?
+```
+
+---
+
+# 12. CloudTrail + CloudWatch Monitoring Architecture
+
+CloudTrail and CloudWatch can work together.
+
+```text
+              AWS USER
+                  |
+                  v
+              AWS API
+                  |
+                  v
+            AWS SERVICE
+                  |
+                  v
+            CLOUDTRAIL
+             /      \
+            /        \
+           v          v
+      S3 Bucket   CloudWatch Logs
+                       |
+                       v
+                  Metric Filter
+                       |
+                       v
+                 CloudWatch Alarm
+                       |
+                       v
+                    SNS
+                       |
+                       v
+                 Administrator
+```
+
+Example objective:
+
+```text
+Someone changes/deletes a resource
+             ↓
+CloudTrail records API activity
+             ↓
+CloudWatch Logs receives logs
+             ↓
+Monitoring rule detects activity
+             ↓
+Alarm / notification
+             ↓
+Administrator investigates
+```
+
+---
+
+# 13. CloudWatch vs CloudTrail
+
+| Feature                 | CloudWatch                             | CloudTrail                          |
+| ----------------------- | -------------------------------------- | ----------------------------------- |
+| Main purpose            | Monitoring & observability             | Auditing & governance               |
+| Focus                   | Performance/health/logs                | AWS API/account activity            |
+| Records API activity    | Not its primary purpose                | Yes                                 |
+| Metrics                 | Yes                                    | Not primary function                |
+| Application logs        | Yes                                    | No                                  |
+| Alarms                  | Yes                                    | Not directly like CloudWatch alarms |
+| User activity auditing  | Limited/not primary                    | Yes                                 |
+| Source IP investigation | Not primary                            | Yes                                 |
+| Security investigation  | Useful                                 | Very important                      |
+| S3 log delivery         | Possible depending on service/workflow | Trails can deliver logs to S3       |
+| Typical question        | "What is happening?"                   | "Who did it?"                       |
+
+## Easy Way to Remember
+
+```text
+CloudWatch
+    =
+WATCH the infrastructure/application
+
+CPU
+Memory*
+Network
+Application Logs
+Errors
+Metrics
+Alarms
+Dashboards
+```
+
+`*` EC2 memory utilization requires an agent or custom metric; it is not a default EC2 metric.
+
+```text
+CloudTrail
+    =
+TRAIL of AWS activity
+
+Who?
+What?
+When?
+Where?
+Which resource?
+```
+
+---
+
+# 14. Practical Example
+
+### Problem
+
+```text
+EC2 instance was terminated.
+```
+
+### CloudWatch tells you:
+
+```text
+Instance metrics
+Performance information
+Monitoring/alarm history
+Relevant logs if configured
+```
+
+### CloudTrail helps tell you:
+
+```text
+TerminateInstances API was called
+User/Role = ...
+Time = ...
+Source IP = ...
+Instance ID = ...
+Region = ...
+```
+
+Therefore:
+
+```text
+CloudWatch → Monitoring
+
+CloudTrail → Auditing
+```
+
+---
+
+# 15. Important Commands for Students
+
+```bash
+# Check current AWS identity
+aws sts get-caller-identity
+
+# List CloudTrail trails
+aws cloudtrail describe-trails
+
+# Check trail status
+aws cloudtrail get-trail-status \
+--name my-cloudtrail
+
+# Start logging
+aws cloudtrail start-logging \
+--name my-cloudtrail
+
+# Stop logging
+aws cloudtrail stop-logging \
+--name my-cloudtrail
+
+# Search recent events
+aws cloudtrail lookup-events
+
+# Search CreateBucket activity
+aws cloudtrail lookup-events \
+--lookup-attributes AttributeKey=EventName,AttributeValue=CreateBucket
+
+# Search TerminateInstances activity
+aws cloudtrail lookup-events \
+--lookup-attributes AttributeKey=EventName,AttributeValue=TerminateInstances
+```
+
+# 16. Final Points to Remember
+
+```text
+CloudTrail = Audit AWS activity
+
+CloudWatch = Monitor AWS resources/applications
+
+CloudTrail records:
+WHO
+WHAT
+WHEN
+WHERE
+WHICH RESOURCE
+
+Event History:
+Recent 90 days of management events
+
+Trail:
+Used for ongoing event delivery
+
+S3:
+Long-term CloudTrail log storage
+
+CloudWatch Logs:
+Monitoring and alerting integration
+
+Management Events:
+Control-plane operations
+
+Data Events:
+Resource-level/data-plane operations
+
+CloudTrail Insights:
+Unusual API activity patterns
+```
+
+### One-Line Exam Memory
+
+> **CloudWatch watches performance and operational data; CloudTrail tracks AWS API and account activity.**
+
 # CloudTrail
 
 ## What is AWS CloudTrail?
