@@ -1,10 +1,4 @@
-# AWS CloudTrail — Basics and Hands-on Tutorial
-
-Beginner
-
-AWS Practical Lab
-
-30–45 minutes
+# AWS CloudTrail 
 
 ## 1. Introduction to AWS CloudTrail
 
