@@ -1,3 +1,333 @@
+# AWS CloudTrail — Basics and Hands-on Tutorial
+
+Beginner
+
+AWS Practical Lab
+
+30–45 minutes
+
+## 1. Introduction to AWS CloudTrail
+
+AWS CloudTrail is an AWS auditing service that records activities performed by users, roles, applications, and AWS services within your AWS account.
+
+It helps answer four important questions:
+
+* Who performed an action?
+
+* What action was performed?
+
+* When was the action performed?
+
+* Where did the request originate?
+
+For example, if someone deletes an EC2 instance, CloudTrail can help identify which IAM identity initiated the deletion, when it happened, and the source IP address.
+
+## 2. CloudTrail architecture
+
+AWS Account
+
+IAM Users · IAM Roles · AWS CLI · AWS Console
+
+AWS API activity
+
+![How to Use AWS CloudTrail: Creating Trails | INE Internetwork Expert](https://images.openai.com/static-rsc-4/8esdxi1-8NHo7EKTuFsSsHGe7ZPQPI-ZX7wHUaJBlHcFxC2Et221BjgTZ9az7LeHPCdRP_jDwSdEil92tqRIu6Kqb1CoKkB5pwfctEK-ga4Y8C3ClWTARdetFxGs0080qrHv-ZIu9U5XJvt31-atE2mog53S6djZsXjngHUWwZ0?purpose=inline)
+
+AWS CloudTrail
+
+Records supported API events
+
+Event history
+
+Search recent management events
+
+Amazon S3
+
+Store trail logs
+
+CloudWatch
+
+Monitor and alert on events
+
+## 3. Important concepts
+
+|
+Concept
+
+|
+
+Description
+
+|
+| --- | --- |
+|
+
+Event
+
+|
+
+A recorded AWS API activity
+
+|
+|
+
+Event history
+
+|
+
+Searchable 90-day history of management events
+
+|
+|
+
+Trail
+
+|
+
+Configuration that delivers selected events to S3
+
+|
+|
+
+Management events
+
+|
+
+Operations such as creating or deleting EC2 instances
+
+|
+|
+
+Data events
+
+|
+
+Resource-level activities such as S3 object access
+
+|
+|
+
+Insights events
+
+|
+
+Detect unusual patterns in supported API activity
+
+|
+|
+
+CloudTrail Lake
+
+|
+
+Managed event storage and SQL-based querying
+
+|
+
+## 4. Hands-on lab: Monitor EC2 activities
+
+Lab 1
+
+View CloudTrail event history
+
+CloudTrail Event history is available without first creating a trail. It records management events for the last 90 days in each Region.
+
+Step 1: Open CloudTrail
+
+1. Sign in to the AWS Management Console.
+
+2. Search for `CloudTrail`.
+
+3. Open the CloudTrail service.
+
+4. Select the same AWS Region as your EC2 instance.
+
+5. In the left navigation menu, choose Event history.
+
+Step 2: Generate an EC2 event
+
+1. Open the Amazon EC2 console.
+
+2. Launch a small test instance, or select an existing test instance.
+
+3. Stop the test instance.
+
+4. Return to CloudTrail Event history.
+
+5. Filter by event name `StopInstances`.
+
+CloudTrail may take a few minutes to display the event.
+
+Step 3: Inspect the event
+
+Select the event and examine its JSON record. Important fields include `eventTime`, `eventName`, `eventSource`, `userIdentity`, `sourceIPAddress`, and `requestParameters`.
+
+A typical event name for stopping an EC2 instance is `StopInstances`.
+
+
+## 5. AWS CLI practical commands
+
+Lab 2
+
+Search CloudTrail events
+
+Configure your AWS CLI with authorized credentials and select your test Region.
+
+Bash
+
+```
+aws configure
+aws sts get-caller-identity
+```
+
+View the latest 10 events:
+
+Bash
+
+```
+aws cloudtrail lookup-events \
+  --region us-east-1 \
+  --max-items 10
+```
+
+Find EC2 instance launches:
+
+Bash
+
+```
+aws cloudtrail lookup-events \
+  --region us-east-1 \
+  --lookup-attributes \
+  AttributeKey=EventName,AttributeValue=RunInstances
+```
+
+Find EC2 instance termination events:
+
+Bash
+
+```
+aws cloudtrail lookup-events \
+  --region us-east-1 \
+  --lookup-attributes \
+  AttributeKey=EventName,AttributeValue=TerminateInstances
+```
+
+Display a compact table:
+
+Bash
+
+```
+aws cloudtrail lookup-events \
+  --region us-east-1 \
+  --query 'Events[*].[EventTime,EventName,Username]' \
+  --output table
+```
+
+These commands query management events in the selected Region; they do not require a trail.
+
+![](https://www.google.com/s2/favicons?domain=https://docs.aws.amazon.com\&sz=32)
+
+AWS CloudTrail
+
++1
+
+## 6. Create a CloudTrail trail
+
+Lab 3
+
+Store audit logs in Amazon S3
+
+A trail delivers selected events to an S3 bucket so that you can retain them beyond Event history's 90-day window.
+
+![](https://www.google.com/s2/favicons?domain=https://docs.aws.amazon.com\&sz=32)
+
+AWS CloudTrail
+
++1
+
+1. Open AWS CloudTrail and select Trails.
+
+2. Select Create trail and enter `my-cloudtrail`.
+
+3. Choose to create a new S3 bucket for storing CloudTrail logs.
+
+4. Keep the multi-Region trail option enabled to record activity across enabled AWS Regions.
+
+5. Enable log file validation and choose the encryption settings appropriate for your lab.
+
+6. Under event types, select Management events, including Read and Write events.
+
+7. Review the settings and create the trail.
+
+8. Generate an EC2 event, wait for log delivery, then open the S3 bucket to inspect the compressed JSON log files.
+
+Cost note: Event history is free to view. Trails can incur S3 storage and other charges, depending on the features configured.
+
+## 7. CloudTrail vs CloudWatch
+
+|
+CloudTrail
+
+|
+
+CloudWatch
+
+|
+| --- | --- |
+|
+
+Records account and API activity
+
+|
+
+Monitors metrics, logs and alarms
+
+|
+|
+
+Helps identify who changed a resource
+
+|
+
+Helps identify performance and operational problems
+
+|
+|
+
+Supports auditing and investigation
+
+|
+
+Supports monitoring and alerting
+
+|
+|
+
+Example: Who terminated an EC2 instance?
+
+|
+
+Example: Is EC2 CPU utilization above 80%?
+
+|
+
+CloudTrail and CloudWatch can work together. For example, CloudTrail records an API event, CloudWatch Logs receives the event through a configured trail, and a metric filter and alarm can help notify administrators.
+
+## 8. Points to remember
+
+* CloudTrail Event history is available automatically and retains 90 days of management events per Region.
+
+* A trail delivers logs to S3 for longer-term retention.
+
+* Management events and data events are different; S3 object-level logging requires data-event configuration.
+
+* CloudTrail is primarily for auditing, while CloudWatch is primarily for monitoring.
+
+* Enable multi-Region trails and log file validation for broader audit coverage.
+
+* For security investigations, examine event identity, time, source IP, resources and any recorded errors.
+
+For further practice, use the official AWS CloudTrail User Guide .
+
 # AWS CloudTrail Monitoring
 
 ## 1. Introduction to AWS CloudTrail
